@@ -1,0 +1,6 @@
+*.o
+.flavor
+.objs
+kore-blog.so
+assets.h
+cert
