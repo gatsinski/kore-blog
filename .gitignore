@@ -1,6 +1,7 @@
 *.o
 .flavor
 .objs
+.vscode
 kore-blog.so
 assets.h
 cert
