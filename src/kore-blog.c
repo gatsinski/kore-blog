@@ -1,9 +1,17 @@
+/*
+ * Simple blog API
+ */
+
 #include <kore/kore.h>
 #include <kore/http.h>
 #include <kore/pgsql.h>
+#include "json_utils.h"
+#include "common_utils.h"
 
 int init(int);
 int page(struct http_request *);
+int posts(struct http_request *);
+int authors(struct http_request *);
 
 int init(int state)
 {
@@ -17,42 +25,46 @@ int init(int state)
 
 int page(struct http_request *req)
 {
-    struct kore_pgsql sql;
-    char *content;
-    int rows, i;
+    char *json_response = generate_index_json();
+    http_response_header(req, "post_content-type", "application/json");
 
+    return_http_response(req, json_response);
+    return (KORE_RESULT_OK);
+}
+
+int posts(struct http_request *req)
+{
+    int rows;
+    char *json_response = NULL;
+    struct kore_pgsql sql;
+
+    http_response_header(req, "post_content-type", "application/json");
     req->status = HTTP_STATUS_INTERNAL_ERROR;
 
     kore_pgsql_init(&sql);
+    rows = get_sql_result(&sql,
+                          "SELECT id, author, content, created_at FROM posts");
 
-    if (!kore_pgsql_setup(&sql, "kore-blog", KORE_PGSQL_SYNC))
-    {
-        kore_pgsql_logerror(&sql);
-        goto out;
-    }
+    json_response = generate_posts_json(rows, &sql);
+    return_http_response(req, json_response);
 
-    if (!kore_pgsql_query(&sql, "SELECT content FROM posts"))
-    {
-        kore_pgsql_logerror(&sql);
-        goto out;
-    }
-
-    rows = kore_pgsql_ntuples(&sql);
-
-    for (i = 0; i < rows; i++)
-    {
-        content = kore_pgsql_getvalue(&sql, i, 0);
-        kore_log(LOG_NOTICE, "name: '%s'", content);
-        http_response(req, 200, content, strlen(content));
-    }
-
-    req->status = HTTP_STATUS_OK;
-
-out:
-    http_response(req, req->status, NULL, 0);
-
-    /* Don't forget to cleanup the kore_pgsql data structure. */
     kore_pgsql_cleanup(&sql);
+    return (KORE_RESULT_OK);
+}
 
+int authors(struct http_request *req)
+{
+    int rows;
+    char *json_response = NULL;
+    struct kore_pgsql sql;
+
+    http_response_header(req, "post_content-type", "application/json");
+
+    kore_pgsql_init(&sql);
+    rows = get_sql_result(&sql, "SELECT id, name FROM authors");
+    json_response = generate_authors_json(rows, &sql);
+    return_http_response(req, json_response);
+
+    kore_pgsql_cleanup(&sql);
     return (KORE_RESULT_OK);
 }
